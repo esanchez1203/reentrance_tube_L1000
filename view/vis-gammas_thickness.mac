@@ -1,0 +1,132 @@
+/RMG/Manager/Logging/LogLevel detail
+
+/RMG/Geometry/RegisterDetector Scintillator atmospheric_argon 001
+
+/run/initialize
+
+/vis/open OGL 800x600-0+0
+
+/vis/viewer/set/autoRefresh false
+/vis/verbose errors
+
+/vis/drawVolume
+
+# SPECIFY VIEWING ANGLE
+/vis/viewer/set/viewpointVector 1 1 1
+/vis/viewer/set/upVector 0 0 1
+/vis/viewer/set/lightsVector 1 1 1
+
+# VISUALIZATION STYLE  
+/vis/viewer/set/style surface
+/vis/viewer/set/auxiliaryEdge true
+/vis/viewer/set/lineSegmentsPerCircle 100  # Increased for smoother curves
+/vis/viewer/set/hiddenMarker true
+
+# SET COLORS using RGB values (R G B Alpha)
+
+# REENTRANCE TUBE - Make it stand out with high contrast and edge visibility
+/vis/geometry/set/colour reentrance_tube_lv 0 0 0.13 0.55 0.13 0.9  # More opaque green
+/vis/geometry/set/visibility reentrance_tube_lv 0 true
+/vis/geometry/set/forceAuxEdgeVisible reentrance_tube_lv 0 true  # Force edges to show
+
+# UNDERGROUND ARGON - Light blue, semi-transparent to see it's inside
+/vis/geometry/set/colour underground_argon_lv 0 0 0.5 0.8 1.0 0.6
+/vis/geometry/set/visibility underground_argon_lv 0 true
+
+# ATMOSPHERIC ARGON - Pink/rose, more transparent
+/vis/geometry/set/colour atmospheric_argon_lv 0 0 1.0 0.75 0.8 0.5  # More transparent
+/vis/geometry/set/visibility atmospheric_argon_lv 0 true
+
+# Lead shielding - semi-transparent grey to see inside
+/vis/geometry/set/colour leadshield_log 0 0 0.5 0.5 0.5 0.4
+/vis/geometry/set/visibility leadshield_log 0 true
+
+# Copper shielding - red/orange
+/vis/geometry/set/colour coppershield_log 0 0 1.0 0.3 0.1 0.3
+/vis/geometry/set/visibility coppershield_log 0 true
+
+# Nitrogen chamber - light blue  
+/vis/geometry/set/colour Nfilledchamber_log 0 0 0.3 0.3 1.0 0.4
+
+# Crystal components - green shades
+/vis/geometry/set/colour detdeadlayer_log 0 0 0.0 0.6 0.0 0.8
+/vis/geometry/set/colour crystal_top_lv 0 0 0.0 1.0 0.0 1.0
+/vis/geometry/set/colour crystal_middle_lv 0 0 0.0 1.0 0.0 1.0  
+/vis/geometry/set/colour crystal_bottom_lv 0 0 0.0 1.0 0.0 1.0
+
+# Copper detector components - orange
+/vis/geometry/set/colour detwindow_log 0 0 1.0 0.5 0.0 0.9
+/vis/geometry/set/colour dethousing_tubs_1_log 0 0 1.0 0.4 0.0 0.8
+/vis/geometry/set/colour dethousing_cons_2_log 0 0 1.0 0.4 0.0 0.8
+/vis/geometry/set/colour dethousing_tubs_3_log 0 0 1.0 0.4 0.0 0.8
+
+# Detector internals
+/vis/geometry/set/colour detinnercap_log 0 0 1.0 0.3 0.0 0.7
+/vis/geometry/set/colour detinnercapbottom_log 0 0 1.0 0.3 0.0 0.7
+/vis/geometry/set/colour detinnercaptop_log 0 0 1.0 0.3 0.0 0.6
+
+# Polyethylene - yellow
+/vis/geometry/set/colour detpecap_log 0 0 1.0 1.0 0.0 0.7
+/vis/geometry/set/colour detpecaptop_log 0 0 1.0 1.0 0.0 0.7
+/vis/geometry/set/colour detpecapbottom_log 0 0 1.0 1.0 0.0 0.7
+
+# Vacuum regions - very transparent cyan
+/vis/geometry/set/colour detvacuum1_log 0 0 0.0 1.0 1.0 0.1
+/vis/geometry/set/colour detvacuum2_log 0 0 0.0 1.0 1.0 0.1
+/vis/geometry/set/colour detvacuum3_log 0 0 0.0 1.0 1.0 0.1
+/vis/geometry/set/colour detvacuum4_log 0 0 0.0 1.0 1.0 0.1
+/vis/geometry/set/colour detvacuum5_log 0 0 0.0 1.0 1.0 0.1
+
+# Support plates - brown
+/vis/geometry/set/colour copperbottomplate1_log 0 0 0.6 0.3 0.1 0.8
+/vis/geometry/set/colour copperbottomplate2_log 0 0 0.6 0.3 0.1 0.8
+
+# Spring - magenta
+/vis/geometry/set/colour detinnerspring_log 0 0 1.0 0.0 1.0 0.8
+
+# CUTAWAY PLANE - This is KEY for seeing the thin wall!
+# Choose one of these options to see the tube cross-section:
+
+# Option 1: Vertical cut through center (best for seeing wall thickness)
+/vis/viewer/addCutawayPlane 0 0 0 m 1 0 0    # X-cut
+
+# Option 2: Y-cut (alternative view)
+#/vis/viewer/addCutawayPlane 0 0 0 m 0 1 0    # Y-cut  
+
+# Option 3: Horizontal cut at different heights
+#/vis/viewer/addCutawayPlane 0 0 -2 m 0 0 1     # Z-cut (horizontal slice)
+
+# TRAJECTORY SETUP
+/vis/scene/add/trajectories smooth
+/vis/modeling/trajectories/create/drawByCharge
+/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
+/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
+
+# Accumulate events
+/vis/scene/endOfEventAction accumulate
+
+# ADD FRAME AND DECORATIONS
+/vis/set/colour red
+/vis/set/lineWidth 2
+/vis/scene/add/frame
+/vis/set/colour
+/vis/set/lineWidth
+
+# Add coordinate axes for reference
+/vis/scene/add/axes 0 0 0 50 mm
+
+# FINAL VIEWER SETTINGS
+/vis/viewer/set/autoRefresh true
+/vis/viewer/zoom 2.0  # Zoom in closer to see details
+/vis/verbose warnings
+
+# PARTICLE SOURCE SETUP
+/RMG/Generator/Confine Volume
+/RMG/Generator/Confinement/Physical/AddVolume atmospheric_argon
+
+/RMG/Generator/Select GPS
+/gps/particle gamma
+/gps/ang/type iso
+/gps/energy 1000 keV
+
+/run/beamOn 10

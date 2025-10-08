@@ -1,0 +1,42 @@
+fine_mesh: true
+
+# Top-down view to see radial layers (steel, WLS, argon)
+default:
+  focus: [0, 0, -2500]  # Focus on lower section where WLS is
+  up: [1, 0, 0]
+  camera: [0, 0, 2000]  # Look down from above
+  parallel: 1200
+
+# Cut horizontally to see cross-section of layers
+clipper:
+  - origin: [0, 0, -2200]  # Cut at z=-2000mm (in WLS region)
+    normal: [0, 0, 1]  # Horizontal cut
+    close_cuts: true
+
+color_overrides:
+
+  world_logical: false
+  #atmospheric_argon_lv: [0.5, 0.8, 1.0, 0.7]
+  atmospheric_argon_lv: false
+  #reentrance_tube_lv: [0.5, 0.5, 0.5, 1.0]
+  reentrance_tube_lv: false
+  #underground_argon_lv: [1.0, 0.0, 1.0, 0.7]
+  underground_argon_lv: false
+
+  #Outer WLSR (facing atmospheric argon)
+  #wls_outer_lv: false
+  wls_outer_lv: [0.72, 0.45, 0.20, 1.0]  # Copper color
+  #wls_tetratex_lv: false
+  wls_tetratex_lv: [0.7, 0.7, 0.8, 1.0]  # White/translucent TTX
+
+  #Inner WLSR (facing underground argon)
+  #wls_inner_lv: false
+  wls_inner_lv: [0.72, 0.45, 0.20, 1.0]  # Copper color
+  #wls_tetratex_inner_lv: false
+  wls_tetratex_inner_lv: [0.7, 0.7, 0.8, 1.0]  # White/translucent TTX
+
+  #Other materials
+  ofhc_cu_lv: false
+  #ofhc_cu_lv: [1.0, 0.5, 0.0, 1.0]  # Orange OFHC copper
+  ss_316l_lv: false
+  #ss_316l_lv: [0.7, 0.7, 0.8, 1.0]  # Light blue-gray 316L

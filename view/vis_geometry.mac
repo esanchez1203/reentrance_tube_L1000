@@ -1,0 +1,112 @@
+/RMG/Manager/Logging/LogLevel detail
+
+/RMG/Geometry/RegisterDetector Scintillator underground_argon 001
+
+/run/initialize
+
+/vis/open OGL 800x600-0+0
+
+/vis/viewer/set/autoRefresh false
+/vis/verbose errors
+
+/vis/drawVolume
+
+# VIEWING ANGLE - Slightly angled to see depth
+/vis/viewer/set/viewpointVector 1 0.5 0.8
+/vis/viewer/set/upVector 0 0 1
+/vis/viewer/set/lightsVector 1 1 1
+
+# VISUALIZATION STYLE  
+/vis/viewer/set/style surface
+/vis/viewer/set/auxiliaryEdge true
+/vis/viewer/set/lineSegmentsPerCircle 100
+/vis/viewer/set/hiddenMarker true
+
+# CRITICAL: Make outer volumes VERY transparent or invisible
+/vis/geometry/set/visibility world_logical 0 false
+
+# ATMOSPHERIC ARGON - Nearly invisible
+/vis/geometry/set/colour atmospheric_argon_lv 0 0 1.0 0.75 0.8 0.1
+/vis/geometry/set/visibility atmospheric_argon_lv 0 true
+
+# REENTRANCE TUBE - VERY TRANSPARENT to see copper inside
+/vis/geometry/set/colour reentrance_tube_lv 0 0 0.5 0.5 0.5 0.15
+/vis/geometry/set/visibility reentrance_tube_lv 0 true
+/vis/geometry/set/forceAuxEdgeVisible reentrance_tube_lv 0 true
+
+# UNDERGROUND ARGON - Transparent
+/vis/geometry/set/colour underground_argon_lv 0 0 0.1 0.8 0.3 0.2
+/vis/geometry/set/visibility underground_argon_lv 0 true
+
+# WLS LAYERS - Make them transparent too
+/vis/geometry/set/colour wls_tetratex_lv 0 0 1.0 0.0 0.0 0.4
+/vis/geometry/set/visibility wls_tetratex_lv 0 true
+
+/vis/geometry/set/colour wls_outer_lv 0 0 0.0 1.0 0.0 0.6
+/vis/geometry/set/visibility wls_outer_lv 0 true
+
+/vis/geometry/set/colour wls_inner_lv 0 0 0.0 0.5 1.0 0.6
+/vis/geometry/set/visibility wls_inner_lv 0 true
+
+/vis/geometry/set/colour wls_tetratex_inner_lv 0 0 1.0 0.5 0.0 0.4
+/vis/geometry/set/visibility wls_tetratex_inner_lv 0 true
+
+# OFHC COPPER - BRIGHT, FULLY OPAQUE - THIS IS WHAT YOU WANT TO SEE!
+/vis/geometry/set/colour ofhc_cu_lv 0 0 1.0 0.45 0.0 1.0
+/vis/geometry/set/visibility ofhc_cu_lv 0 true
+/vis/geometry/set/forceAuxEdgeVisible ofhc_cu_lv 0 true
+/vis/geometry/set/forceSolid ofhc_cu_lv 0 true
+
+# 316L STAINLESS STEEL - Also make visible and opaque
+/vis/geometry/set/colour ss_316l_lv 0 0 0.7 0.7 0.9 0.9
+/vis/geometry/set/visibility ss_316l_lv 0 true
+/vis/geometry/set/forceAuxEdgeVisible ss_316l_lv 0 true
+
+# CUTAWAY PLANES - Essential to see the copper ring inside
+# Clear any existing planes first
+/vis/viewer/clearCutawayPlanes
+
+# Add a vertical cut through center
+/vis/viewer/addCutawayPlane 0 0 0 m 1 0 0
+
+# Optionally add a horizontal cut in the OFHC region
+# OFHC is from z=-4068 to z=-1863 (roughly -4000 to -2000)
+# Uncomment the line below to add horizontal cut:
+/vis/viewer/addCutawayPlane 0 0 -3000 mm 0 0 1
+
+# TRAJECTORY SETUP
+/vis/scene/add/trajectories smooth
+/vis/modeling/trajectories/create/drawByCharge
+/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
+/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
+
+/vis/scene/endOfEventAction accumulate
+
+# FRAME AND DECORATIONS
+/vis/set/colour red
+/vis/set/lineWidth 2
+/vis/scene/add/frame
+/vis/set/colour
+/vis/set/lineWidth
+
+# Coordinate axes
+/vis/scene/add/axes 0 0 0 500 mm
+
+# TEXT OVERLAY (optional - helps identify what you're seeing)
+/vis/scene/add/text 0 0 -3000 mm 200 0 0 "OFHC Cu Region" false cm
+
+# FINAL SETTINGS
+/vis/viewer/set/autoRefresh true
+/vis/viewer/zoom 1.5
+/vis/verbose warnings
+
+# PARTICLE SOURCE
+/RMG/Generator/Confine Volume
+/RMG/Generator/Confinement/Physical/AddVolume underground_argon
+
+/RMG/Generator/Select GPS
+/gps/particle gamma
+/gps/ang/type iso
+/gps/energy 1000 keV
+
+/run/beamOn 10

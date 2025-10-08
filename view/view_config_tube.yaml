@@ -1,0 +1,20 @@
+fine_mesh: true
+
+default:
+  focus: [0, 0, 0]
+  up: [0, 0, 1]
+  camera: [10000, 0, 0]
+  parallel: 5000
+
+color_overrides:
+  world_logical: false
+  atmospheric_argon_lv: [0.5, 0.8, 1.0, 0.1]
+  #atmospheric_argon_lv: false
+  reentrance_tube_lv: [0.5, 0.5, 0.5, 0.8]
+  #reentrance_tube_lv: false	
+  #underground_argon_lv: [1.0, 0.0, 1.0, 0.8]
+  underground_argon_lv: false
+  wls_outer_lv: [1.0, 0.0, 0.0, 0.6]  # Red outer WLS
+  wls_inner_lv: [0.0, 0.0, 1.0, 0.6]  # Blue inner WLS
+  ofhc_cu_lv: [0.6, 0.3, 0.0, 1.0]  # Blue inner WLS
+  ss_316l_lv: [0.0, 1.0, 1.0, 1.0]
