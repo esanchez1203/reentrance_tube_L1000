@@ -31,52 +31,7 @@ def construct_reentrance_tube(
     ofhc_end_height=4184,
     ss_start_height=4184,
 ):
-    """
-    Construct complete reentrance tube assembly.
     
-    This function is designed to be easily integrated into cryo.py.
-    All parameters follow the same naming conventions as existing cryo.py functions.
-    
-    Parameters
-    ----------
-    materials : OpticalMaterialRegistry
-        Material registry with optical properties
-    registry : g4.Registry
-        pyg4ometry registry
-    mother_lv : g4.LogicalVolume
-        Mother logical volume (atmospheric LAr)
-    mother_pv : g4.PhysicalVolume
-        Mother physical volume
-    neckradius : float
-        Radius of tube neck in mm
-    tubeheight : float
-        Total height of tube in mm
-    totalheight : float
-        Total height including clearance in mm
-    curvefraction : float
-        Fraction of tube that is curved at bottom
-    with_outer_wls : bool
-        Include outer WLS layers
-    with_inner_wls : bool
-        Include inner WLS layers
-    wls_height : float
-        Height of WLS region from bottom in mm
-    with_ofhc_cu : bool
-        Include OFHC copper cylinder
-    with_316l_ss : bool
-        Include 316L stainless steel cylinder
-    ofhc_start_height : float
-        OFHC copper start height from bottom in mm
-    ofhc_end_height : float
-        OFHC copper end height from bottom in mm
-    ss_start_height : float
-        316L steel start height from bottom in mm
-        
-    Returns
-    -------
-    tuple
-        (tube_lv, cavity_lv, tube_pv, cavity_pv)
-    """
     print(f"\nReentrance tube: radius={neckradius}mm, height={tubeheight}mm")
 
     # Generate steel profiles
