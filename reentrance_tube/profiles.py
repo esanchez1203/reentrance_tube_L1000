@@ -5,6 +5,7 @@ from __future__ import annotations
 WLSR_TPB_THICKNESS = 1 * 1e-3  # 1 um TPB coating (in mm)
 WLSR_TTX_THICKNESS = 254 * 1e-3  # 254 um Tetratex foil (in mm)
 WLSR_THICKNESS = WLSR_TPB_THICKNESS + WLSR_TTX_THICKNESS
+PROTECTION_GAP = 5 * 1e-6  # 5 nm gap in mm
 
 
 def get_thickness_at_distance(
@@ -45,11 +46,11 @@ def get_thickness_at_distance(
             steel_thickness = 1.5
 
     # Add WLSR thickness if requested
-    if include_wlsr:
-        distance_from_bottom = total_tube_height - distance_from_top
-        if distance_from_bottom <= wlsr_height:
-            wlsr_total_thickness = WLSR_TTX_THICKNESS + WLSR_TPB_THICKNESS
-            return steel_thickness + 2 * wlsr_total_thickness
+    #if include_wlsr:
+    #    distance_from_bottom = total_tube_height - distance_from_top
+    #    if distance_from_bottom <= wlsr_height:
+    #        wlsr_total_thickness = WLSR_TTX_THICKNESS + WLSR_TPB_THICKNESS
+    #        return steel_thickness + 2 * wlsr_total_thickness
 
     return steel_thickness
 
@@ -193,67 +194,112 @@ def make_inner_profile(
 
     return inner_z, inner_r
 
-
-def make_wls_outer_profiles(
+def make_inner_wlsr_argon_profiles(
     neckradius: float,
     tubeheight: float,
     totalheight: float,
     curvefraction: float,
     wls_height: float,
+    inner_z: list,
+    inner_r: list,
     outer_z: list,
     outer_r: list,
 ) -> tuple:
     """
-    Create outer WLS layer profiles (from steel outer surface inward).
+    Create inner WLS layer profiles for placement in underground argon.
     
-    Returns properly closed polycone profiles with flat top cap.
+    Structure: Steel -> Gap -> TTX -> TPB -> UAr
+    
+    TTX outer surface = Tube inner - gap
+    TTX inner surface = Tube inner - gap - TTX_thickness - TPB_thickness
+    TPB inner surface = Tube inner - gap - TTX_thickness
+    TPB outer surface = Tube inner - gap - TTX_thickness - TPB_thickness
     
     Returns
     -------
     tuple
-        (wls_outer_z, wls_outer_r, wls_inner_z, wls_inner_r)
+        (tpb_outer_z, tpb_outer_r, tpb_inner_z, tpb_inner_r,
+         ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r)
     """
     bottom_z = (totalheight - tubeheight) - 5000
     top_wls_z = bottom_z + wls_height
 
-    wls_outer_z, wls_outer_r = [], []
-    wls_inner_z, wls_inner_r = [], []
+    ttx_outer_z, ttx_outer_r = [], []
+    ttx_inner_z, ttx_inner_r = [], []
+    tpb_outer_z, tpb_outer_r = [], []
+    tpb_inner_z, tpb_inner_r = [], []
 
-    # Extract points in WLS region
-    for z, r in zip(outer_z, outer_r):
+    for z, r_inner in zip(inner_z, inner_r):
         if bottom_z <= z <= top_wls_z:
-            wls_outer_z.append(z)
-            wls_outer_r.append(r)
-
-            if r == 0:
-                inner_r_value = 0
-            elif r == neckradius:
-                inner_r_value = max(0, r - WLSR_THICKNESS)
+            # Skip r=0 points except at the very top
+            if r_inner == 0 and z < top_wls_z - 0.01:
+                continue
+                
+            if r_inner == 0:
+                ttx_outer_z.append(z)
+                ttx_outer_r.append(0)
+                ttx_inner_z.append(z)
+                ttx_inner_r.append(0)
+                tpb_outer_z.append(z)
+                tpb_outer_r.append(0)
+                tpb_inner_z.append(z)
+                tpb_inner_r.append(0)
             else:
-                radius_ratio = r / neckradius
-                scaled_thickness = WLSR_THICKNESS * radius_ratio
-                inner_r_value = max(0, r - scaled_thickness)
-
-            wls_inner_z.append(z)
-            wls_inner_r.append(inner_r_value)
+                r_ttx_outer_desired = r_inner - PROTECTION_GAP 
+                r_ttx_outer = min(r_ttx_outer_desired, r_inner)
+                r_ttx_outer = max(0, r_ttx_outer)
+                
+                r_ttx_inner = max(0, r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
+                r_tpb_outer = max(0, r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS)
+                r_tpb_inner = max(0, r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
+                
+                ttx_outer_z.append(z)
+                ttx_outer_r.append(r_ttx_outer)
+                ttx_inner_z.append(z)
+                ttx_inner_r.append(r_ttx_inner)
+                tpb_outer_z.append(z)
+                tpb_outer_r.append(r_tpb_outer)
+                tpb_inner_z.append(z)
+                tpb_inner_r.append(r_tpb_inner)
 
     # Ensure point at exact top height
-    if wls_outer_z and wls_outer_z[-1] < top_wls_z - 1:
-        wls_outer_z.append(top_wls_z)
-        wls_outer_r.append(neckradius)
-        wls_inner_z.append(top_wls_z)
-        wls_inner_r.append(max(0, neckradius - WLSR_THICKNESS))
+    if ttx_outer_z and ttx_outer_z[-1] < top_wls_z - 1:
+        last_r_inner = inner_r[-1]
+        for i, z in enumerate(inner_z):
+            if abs(z - top_wls_z) < 0.1:
+                last_r_inner = inner_r[i]
+                break
+        
+        r_ttx_outer_desired = last_r_inner - PROTECTION_GAP 
+        r_ttx_outer = min(r_ttx_outer_desired, last_r_inner )
+        r_ttx_outer = max(0, r_ttx_outer)
+        r_ttx_inner = max(0, last_r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
+        r_tpb_outer = max(0, last_r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS)
+        r_tpb_inner = max(0, last_r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
+        
+        ttx_outer_z.append(top_wls_z)
+        ttx_outer_r.append(r_ttx_outer)
+        ttx_inner_z.append(top_wls_z)
+        ttx_inner_r.append(r_ttx_inner)
+        tpb_outer_z.append(top_wls_z)
+        tpb_outer_r.append(r_tpb_outer)
+        tpb_inner_z.append(top_wls_z)
+        tpb_inner_r.append(r_tpb_inner)
 
-    # Add r=0 point at top to create flat end cap
-    wls_outer_z.append(top_wls_z)
-    wls_outer_r.append(0)
-    wls_inner_z.append(top_wls_z)
-    wls_inner_r.append(0)
+    # Add r=0 closure at top
+    ttx_outer_z.append(top_wls_z)
+    ttx_outer_r.append(0)
+    ttx_inner_z.append(top_wls_z)
+    ttx_inner_r.append(0)
+    tpb_outer_z.append(top_wls_z)
+    tpb_outer_r.append(0)
+    tpb_inner_z.append(top_wls_z)
+    tpb_inner_r.append(0)
 
-    return wls_outer_z, wls_outer_r, wls_inner_z, wls_inner_r
+    return (tpb_outer_z, tpb_outer_r, tpb_inner_z, tpb_inner_r,
+            ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r)
 
-
-def make_tetratex_outer_profiles(
+def make_outer_wlsr_atmospheric_profiles(
     neckradius: float,
     tubeheight: float,
     totalheight: float,
@@ -261,165 +307,46 @@ def make_tetratex_outer_profiles(
     wls_height: float,
     outer_z: list,
     outer_r: list,
-) -> tuple:
+):
     """
-    Create Tetratex layer profiles (inner layer of WLS, on steel surface).
-    
-    Returns properly closed polycone profiles with flat top cap.
-    
-    Returns
-    -------
-    tuple
-        (ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r)
+    Create WLS profiles for outer (atmospheric) region.
+    - TTX mother volume.
+    - TPB is a 1 µm daughter coating on its outer surface.
     """
-    # Get WLS profiles (which span the full thickness)
-    wls_outer_z, wls_outer_r, wls_inner_z, wls_inner_r = make_wls_outer_profiles(
-        neckradius, tubeheight, totalheight, curvefraction, wls_height, outer_z, outer_r
-    )
 
-    # Tetratex inner = WLS inner (steel outer surface)
-    ttx_inner_z = wls_inner_z.copy()
-    ttx_inner_r = wls_inner_r.copy()
+    global WLSR_TTX_THICKNESS, WLSR_TPB_THICKNESS
 
-    # Tetratex outer = WLS inner + ttx_thickness
-    ttx_outer_z = []
-    ttx_outer_r = []
-
-    for z, r in zip(wls_inner_z, wls_inner_r):
-        ttx_outer_z.append(z)
-        if r == 0:
-            ttx_outer_r.append(0)
-        elif r == neckradius:
-            ttx_outer_r.append(r + WLSR_TTX_THICKNESS)
-        else:
-            radius_ratio = r / neckradius
-            scaled_thickness = WLSR_TTX_THICKNESS * radius_ratio
-            ttx_outer_r.append(r + scaled_thickness)
-
-    return ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r
-
-
-def make_wls_inner_profiles(
-    neckradius: float,
-    tubeheight: float,
-    totalheight: float,
-    curvefraction: float,
-    wls_height: float,
-    inner_z: list,
-    inner_r: list,
-    outer_z: list,
-    outer_r: list,
-) -> tuple:
-    """
-    Create inner WLS layer profiles (growing into steel from inner surface).
-    
-    Returns
-    -------
-    tuple
-        (wls_outer_z, wls_outer_r, wls_inner_z, wls_inner_r)
-    """
     bottom_z = (totalheight - tubeheight) - 5000
     top_wls_z = bottom_z + wls_height
 
-    wls_inner_z, wls_inner_r = [], []
-    wls_outer_z, wls_outer_r = [], []
+    ttx_outer_z, ttx_outer_r = [], []
+    ttx_inner_z, ttx_inner_r = [], []
+    tpb_outer_z, tpb_outer_r = [], []
+    tpb_inner_z, tpb_inner_r = [], []
 
-    for z, r in zip(inner_z, inner_r):
-        if bottom_z <= z <= top_wls_z:
-            wls_inner_z.append(z)
-            wls_inner_r.append(r)  # Steel inner surface
-            wls_outer_z.append(z)
+    for z, r in zip(outer_z, outer_r):
+        if bottom_z <= z <= top_wls_z and r > 0:
+            base = r + PROTECTION_GAP  # tube outer + gap
 
-            if r == 0:
-                wls_outer_r.append(0)
-            else:
-                # Find corresponding outer radius
-                r_outer_steel = neckradius
-                for z_steel, r_steel in zip(outer_z, outer_r):
-                    if abs(z_steel - z) < 0.01:
-                        r_outer_steel = r_steel
-                        break
+            # TTX (mother)
+            ttx_inner = base
+            ttx_outer = base + WLSR_TTX_THICKNESS + WLSR_TPB_THICKNESS
 
-                # Grow INTO steel, clamped to not exceed outer surface
-                r_target = r + WLSR_TPB_THICKNESS
-                r_max = r_outer_steel - 0.05  # Small safety margin
-                wls_outer_r.append(min(r_target, r_max))
+            # TPB (daughter)
+            tpb_inner = base + WLSR_TTX_THICKNESS
+            tpb_outer = tpb_inner + WLSR_TPB_THICKNESS
 
-    if wls_inner_z and wls_inner_z[-1] < top_wls_z - 1:
-        last_r = wls_inner_r[-1]
+            ttx_inner_z.append(z); ttx_inner_r.append(ttx_inner)
+            ttx_outer_z.append(z); ttx_outer_r.append(ttx_outer)
+            tpb_inner_z.append(z); tpb_inner_r.append(tpb_inner)
+            tpb_outer_z.append(z); tpb_outer_r.append(tpb_outer)
 
-        r_outer_steel = neckradius
-        for z_steel, r_steel in zip(outer_z, outer_r):
-            if abs(z_steel - top_wls_z) < 0.01:
-                r_outer_steel = r_steel
-                break
-
-        wls_inner_z.append(top_wls_z)
-        wls_inner_r.append(last_r)
-        wls_outer_z.append(top_wls_z)
-        r_target = last_r + WLSR_TPB_THICKNESS
-        r_max = r_outer_steel - 0.05
-        wls_outer_r.append(min(r_target, r_max))
-
-    wls_inner_z.append(top_wls_z)
-    wls_inner_r.append(0)
-    wls_outer_z.append(top_wls_z)
-    wls_outer_r.append(0)
-
-    return wls_outer_z, wls_outer_r, wls_inner_z, wls_inner_r
-
-
-def make_tetratex_inner_profiles(
-    neckradius: float,
-    tubeheight: float,
-    totalheight: float,
-    curvefraction: float,
-    wls_height: float,
-    inner_z: list,
-    inner_r: list,
-    outer_z: list,
-    outer_r: list,
-) -> tuple:
-    """
-    Create inner Tetratex layer profiles (outer layer, coating on TPB).
-    
-    Returns
-    -------
-    tuple
-        (ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r)
-    """
-    # Get WLS profiles
-    wls_outer_z, wls_outer_r, wls_inner_z, wls_inner_r = make_wls_inner_profiles(
-        neckradius, tubeheight, totalheight, curvefraction, wls_height, inner_z, inner_r, outer_z, outer_r
+    return (
+        tpb_outer_z, tpb_outer_r,
+        tpb_inner_z, tpb_inner_r,
+        ttx_outer_z, ttx_outer_r,
+        ttx_inner_z, ttx_inner_r,
     )
-
-    # Tetratex inner = WLS outer
-    ttx_inner_z = wls_outer_z.copy()
-    ttx_inner_r = wls_outer_r.copy()
-
-    # Tetratex outer = WLS outer + ttx_thickness (further into steel, CLAMPED)
-    ttx_outer_z = []
-    ttx_outer_r = []
-
-    for z, r_wls in zip(wls_outer_z, wls_outer_r):
-        ttx_outer_z.append(z)
-        if r_wls == 0:
-            ttx_outer_r.append(0)
-        else:
-            # Find corresponding outer radius
-            r_outer_steel = neckradius
-            for z_steel, r_steel in zip(outer_z, outer_r):
-                if abs(z_steel - z) < 0.01:
-                    r_outer_steel = r_steel
-                    break
-
-            # Grow further into steel with safety margin and clamping
-            r_target = r_wls + WLSR_TTX_THICKNESS
-            r_max = r_outer_steel - 0.05  # 0.05mm safety margin
-            ttx_outer_r.append(min(r_target, r_max))
-
-    return ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r
-
 
 def make_ofhc_cu_profiles(
     neckradius: float,

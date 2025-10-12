@@ -1,0 +1,46 @@
+/RMG/Manager/Logging/LogLevel summary
+/RMG/Processes/OpticalPhysics
+
+/RMG/Geometry/RegisterDetector Optical atmospheric_argon 001
+/RMG/Geometry/RegisterDetector Optical reentrance_tube 002
+/RMG/Geometry/RegisterDetector Optical tpb_outer_atmospheric 003
+/RMG/Geometry/RegisterDetector Optical wls_tetratex_outer_atmospheric 004
+/RMG/Geometry/RegisterDetector Optical tpb_inner_argon 005
+/RMG/Geometry/RegisterDetector Optical wls_tetratex_inner_argon 006
+/RMG/Geometry/RegisterDetector Optical underground_argon 007
+/RMG/Geometry/RegisterDetector Optical ofhc_cu 008
+/RMG/Geometry/RegisterDetector Optical ss_316l 009
+/RMG/Geometry/RegisterDetector Optical blackhole_container 010
+
+/run/initialize
+
+/RMG/Generator/Confine Volume
+
+#/RMG/Generator/Confinement/Physical/AddVolume atmospheric_argon
+/RMG/Generator/Confinement/Physical/AddVolume underground_argon
+#/RMG/Generator/Confinement/Physical/AddVolume reentrance_tube
+
+#/RMG/Generator/Confinement/Physical/AddVolume wls_tetratex
+#/RMG/Generator/Confinement/Physical/AddVolume tpb_coating
+
+#/RMG/Generator/Confinement/Physical/AddVolume wls_inner_coating
+#/RMG/Generator/Confinement/Physical/AddVolume wls_tetratex_inner
+
+#/RMG/Generator/Confinement/Physical/AddVolume ofhc_cu
+#/RMG/Generator/Confinement/Physical/AddVolume ss_316l
+
+
+# Increase max iterations for vertex sampling
+#/RMG/Generator/Confinement/MaxSamplingTrials 10000
+
+
+/RMG/Generator/Select GPS
+/gps/particle opticalphoton
+
+# 128 nm = 9.69 eV
+/gps/energy 9.69 eV
+/gps/ang/type iso
+/gps/polarization 1 0 0
+
+
+/run/beamOn 10000000
