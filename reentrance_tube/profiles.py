@@ -1,4 +1,5 @@
-"""Profile generation functions for reentrance tube geometry."""
+
+"""Profile generation functions for reentrance tube geometry - FIXED VERSION"""
 from __future__ import annotations
 
 # Constants
@@ -14,25 +15,7 @@ def get_thickness_at_distance(
     wlsr_height: float = 2179,
     total_tube_height: float = 6247,
 ) -> float:
-    """
-    Calculate steel thickness at given distance from top of tube.
-    
-    Parameters
-    ----------
-    distance_from_top : float
-        Distance from top of tube in mm
-    include_wlsr : bool
-        Whether to include WLSR thickness
-    wlsr_height : float
-        Height of WLSR region from bottom
-    total_tube_height : float
-        Total height of tube
-        
-    Returns
-    -------
-    float
-        Steel thickness at this position in mm
-    """
+    """Calculate steel thickness at given distance from top of tube."""
     if distance_from_top <= 4067:
         progress = distance_from_top / 4067
         steel_thickness = 6.0 - progress * 0.0  # Constant thickness
@@ -45,13 +28,6 @@ def get_thickness_at_distance(
         else:
             steel_thickness = 1.5
 
-    # Add WLSR thickness if requested
-    #if include_wlsr:
-    #    distance_from_bottom = total_tube_height - distance_from_top
-    #    if distance_from_bottom <= wlsr_height:
-    #        wlsr_total_thickness = WLSR_TTX_THICKNESS + WLSR_TPB_THICKNESS
-    #        return steel_thickness + 2 * wlsr_total_thickness
-
     return steel_thickness
 
 
@@ -61,25 +37,7 @@ def make_outer_profile(
     totalheight: float,
     curvefraction: float,
 ) -> tuple[list, list]:
-    """
-    Create complete outer profile with filled cylindrical section.
-    
-    Parameters
-    ----------
-    neckradius : float
-        Radius of tube neck in mm
-    tubeheight : float
-        Total height of tube in mm
-    totalheight : float
-        Total height including top clearance in mm
-    curvefraction : float
-        Fraction of tube height that is curved at bottom
-        
-    Returns
-    -------
-    tuple[list, list]
-        z and r coordinates for GenericPolycone
-    """
+    """Create complete outer profile with filled cylindrical section."""
     z = []
     r = []
 
@@ -144,7 +102,6 @@ def make_outer_profile(
 
     return z_out, r_out
 
-
 def make_inner_profile(
     neckradius: float,
     tubeheight: float,
@@ -152,27 +109,16 @@ def make_inner_profile(
     curvefraction: float,
 ) -> tuple[list, list]:
     """
-    Create inner profile with variable thickness.
-    
-    Parameters
-    ----------
-    neckradius : float
-        Radius of tube neck in mm
-    tubeheight : float
-        Total height of tube in mm
-    totalheight : float
-        Total height including top clearance in mm
-    curvefraction : float
-        Fraction of tube height that is curved at bottom
-        
-    Returns
-    -------
-    tuple[list, list]
-        z and r coordinates for GenericPolycone
+    Create inner profile with constant wall thickness.
+    Inner surface closes at higher z than outer to maintain thickness.
     """
     outer_z, outer_r = make_outer_profile(neckradius, tubeheight, totalheight, curvefraction)
     top_z_original = totalheight - 1
-
+    bottom_z = totalheight - tubeheight
+    
+    # Calculate the thickness offset needed at the bottom
+    bottom_thickness = get_thickness_at_distance(totalheight - 1 - bottom_z)
+    
     inner_z, inner_r = [], []
 
     for z, r in zip(outer_z, outer_r):
@@ -181,16 +127,32 @@ def make_inner_profile(
         thickness = get_thickness_at_distance(dist_from_top)
 
         if r == 0:
-            inner_r_value = 0
+            # Skip r=0 points during iteration - closures added separately
+            continue
         elif r == neckradius:
+            # Cylindrical section
             inner_r_value = max(0, r - thickness)
+            inner_z.append(z)
+            inner_r.append(inner_r_value)
         else:
+            # Curved section - scale thickness by radius ratio
             radius_ratio = r / neckradius
             scaled_thickness = thickness * radius_ratio
             inner_r_value = max(0, r - scaled_thickness)
+            inner_z.append(z)
+            inner_r.append(inner_r_value)
 
-        inner_z.append(z)
-        inner_r.append(inner_r_value)
+    # Add closures explicitly
+    # Bottom closure: inner closes ABOVE outer by thickness offset
+    bottom_z_adjusted = (bottom_z - 5000)
+    inner_bottom_z = bottom_z_adjusted + bottom_thickness
+    
+    inner_z.insert(0, inner_bottom_z)
+    inner_r.insert(0, 0)
+    
+    # Top closure: both at same height (tube is open at top)
+    inner_z.append(top_z_original - 5000)
+    inner_r.append(0)
 
     return inner_z, inner_r
 
@@ -207,94 +169,84 @@ def make_inner_wlsr_argon_profiles(
 ) -> tuple:
     """
     Create inner WLS layer profiles for placement in underground argon.
+    Based on the working outer WLSR logic from make_outer_wlsr_atmospheric_profiles.
     
-    Structure: Steel -> Gap -> TTX -> TPB -> UAr
+    Profiles are trimmed to stop before top_wls_z to avoid overlaps.
     
-    TTX outer surface = Tube inner - gap
-    TTX inner surface = Tube inner - gap - TTX_thickness - TPB_thickness
-    TPB inner surface = Tube inner - gap - TTX_thickness
-    TPB outer surface = Tube inner - gap - TTX_thickness - TPB_thickness
-    
-    Returns
-    -------
-    tuple
-        (tpb_outer_z, tpb_outer_r, tpb_inner_z, tpb_inner_r,
-         ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r)
+    Structure: Steel inner -> Gap -> TTX (mother) -> TPB (daughter) -> Underground Argon
     """
+    
     bottom_z = (totalheight - tubeheight) - 5000
     top_wls_z = bottom_z + wls_height
+    
+    # Add margin: stop profiles before they reach top_wls_z
+    top_margin = 0.0  # Stop 50mm before top_wls_z
+    effective_top_z = top_wls_z - top_margin
 
     ttx_outer_z, ttx_outer_r = [], []
     ttx_inner_z, ttx_inner_r = [], []
     tpb_outer_z, tpb_outer_r = [], []
     tpb_inner_z, tpb_inner_r = [], []
 
-    for z, r_inner in zip(inner_z, inner_r):
-        if bottom_z <= z <= top_wls_z:
-            # Skip r=0 points except at the very top
-            if r_inner == 0 and z < top_wls_z - 0.01:
-                continue
-                
-            if r_inner == 0:
-                ttx_outer_z.append(z)
-                ttx_outer_r.append(0)
-                ttx_inner_z.append(z)
-                ttx_inner_r.append(0)
-                tpb_outer_z.append(z)
-                tpb_outer_r.append(0)
-                tpb_inner_z.append(z)
-                tpb_inner_r.append(0)
-            else:
-                r_ttx_outer_desired = r_inner - PROTECTION_GAP 
-                r_ttx_outer = min(r_ttx_outer_desired, r_inner)
-                r_ttx_outer = max(0, r_ttx_outer)
-                
-                r_ttx_inner = max(0, r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
-                r_tpb_outer = max(0, r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS)
-                r_tpb_inner = max(0, r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
-                
-                ttx_outer_z.append(z)
-                ttx_outer_r.append(r_ttx_outer)
-                ttx_inner_z.append(z)
-                ttx_inner_r.append(r_ttx_inner)
-                tpb_outer_z.append(z)
-                tpb_outer_r.append(r_tpb_outer)
-                tpb_inner_z.append(z)
-                tpb_inner_r.append(r_tpb_inner)
+    # Loop through inner profile points, just like outer WLSR does with outer profile
+    for z, r in zip(inner_z, inner_r):
+        # Include points in the WLS region, stopping before effective_top_z
+        if bottom_z <= z <= effective_top_z and r > 0:
+            # Structure: r_inner (steel) -> gap -> TTX -> TPB -> argon
+            # TTX outer surface is at: r_inner - gap
+            r_ttx_outer = r - PROTECTION_GAP
+            r_ttx_inner = r_ttx_outer - WLSR_TTX_THICKNESS
+            
+            # TPB is daughter of TTX, outer surface = TTX inner surface
+            r_tpb_outer = r_ttx_inner
+            r_tpb_inner = r_tpb_outer - WLSR_TPB_THICKNESS
+            
+            # Add points for both TTX and TPB (same z-coordinates)
+            ttx_outer_z.append(z)
+            ttx_outer_r.append(r_ttx_outer)
+            ttx_inner_z.append(z)
+            ttx_inner_r.append(r_ttx_inner)
+            
+            tpb_outer_z.append(z)
+            tpb_outer_r.append(r_tpb_outer)
+            tpb_inner_z.append(z)
+            tpb_inner_r.append(r_tpb_inner)
 
-    # Ensure point at exact top height
-    if ttx_outer_z and ttx_outer_z[-1] < top_wls_z - 1:
-        last_r_inner = inner_r[-1]
-        for i, z in enumerate(inner_z):
-            if abs(z - top_wls_z) < 0.1:
-                last_r_inner = inner_r[i]
-                break
+    # Add bottom closures with z-offsets to maintain thickness
+    # (mirroring the outer WLSR closure logic but inverted direction)
+    if ttx_outer_z:
+        # Find where steel inner closes
+        steel_inner_bottom_z = min([z for z, r in zip(inner_z, inner_r) if r == 0])
         
-        r_ttx_outer_desired = last_r_inner - PROTECTION_GAP 
-        r_ttx_outer = min(r_ttx_outer_desired, last_r_inner )
-        r_ttx_outer = max(0, r_ttx_outer)
-        r_ttx_inner = max(0, last_r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
-        r_tpb_outer = max(0, last_r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS)
-        r_tpb_inner = max(0, last_r_inner - PROTECTION_GAP  - WLSR_TTX_THICKNESS - WLSR_TPB_THICKNESS)
+        # Layers stack upward from steel inner closure
+        ttx_outer_bottom_z = steel_inner_bottom_z + PROTECTION_GAP
+        ttx_inner_bottom_z = ttx_outer_bottom_z + WLSR_TTX_THICKNESS
+        tpb_outer_bottom_z = ttx_inner_bottom_z  # Same as TTX inner
+        tpb_inner_bottom_z = tpb_outer_bottom_z + WLSR_TPB_THICKNESS
         
-        ttx_outer_z.append(top_wls_z)
-        ttx_outer_r.append(r_ttx_outer)
-        ttx_inner_z.append(top_wls_z)
-        ttx_inner_r.append(r_ttx_inner)
-        tpb_outer_z.append(top_wls_z)
-        tpb_outer_r.append(r_tpb_outer)
-        tpb_inner_z.append(top_wls_z)
-        tpb_inner_r.append(r_tpb_inner)
+        ttx_outer_z.insert(0, ttx_outer_bottom_z)
+        ttx_outer_r.insert(0, 0)
+        ttx_inner_z.insert(0, ttx_inner_bottom_z)
+        ttx_inner_r.insert(0, 0)
+        
+        tpb_outer_z.insert(0, tpb_outer_bottom_z)
+        tpb_outer_r.insert(0, 0)
+        tpb_inner_z.insert(0, tpb_inner_bottom_z)
+        tpb_inner_r.insert(0, 0)
 
-    # Add r=0 closure at top
-    ttx_outer_z.append(top_wls_z)
-    ttx_outer_r.append(0)
-    ttx_inner_z.append(top_wls_z)
-    ttx_inner_r.append(0)
-    tpb_outer_z.append(top_wls_z)
-    tpb_outer_r.append(0)
-    tpb_inner_z.append(top_wls_z)
-    tpb_inner_r.append(0)
+    # Top stays open (no r=0 closure at top)
+
+    # Debug output
+    print(f"\n=== Inner WLSR Profiles ===")
+    print(f"WLS height: {wls_height} mm")
+    print(f"Z-range: [{bottom_z:.2f}, {top_wls_z:.2f}]")
+    print(f"Profiles stop at z={effective_top_z:.2f} ({top_margin}mm margin)")
+    print(f"TTX: {len(ttx_outer_z)} points, z=[{min(ttx_outer_z) if ttx_outer_z else 'N/A':.2f}, {max(ttx_outer_z) if ttx_outer_z else 'N/A':.2f}]")
+    print(f"TPB: {len(tpb_outer_z)} points, z=[{min(tpb_outer_z) if tpb_outer_z else 'N/A':.2f}, {max(tpb_outer_z) if tpb_outer_z else 'N/A':.2f}]")
+    
+    if ttx_inner_z and tpb_outer_z and len(ttx_inner_z) == len(tpb_outer_z):
+        max_diff = max(abs(ttx_inner_r[i] - tpb_outer_r[i]) for i in range(len(ttx_inner_r)))
+        print(f"TTX inner vs TPB outer max difference: {max_diff:.10f} mm")
 
     return (tpb_outer_z, tpb_outer_r, tpb_inner_z, tpb_inner_r,
             ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r)
@@ -309,13 +261,9 @@ def make_outer_wlsr_atmospheric_profiles(
     outer_r: list,
 ):
     """
-    Create WLS profiles for outer (atmospheric) region.
-    - TTX mother volume.
-    - TPB is a 1 µm daughter coating on its outer surface.
+    Create WLS profiles for outer (atmospheric) region with constant thickness.
+    FIXED: Layers close at progressively LOWER z to maintain constant thickness.
     """
-
-    global WLSR_TTX_THICKNESS, WLSR_TPB_THICKNESS
-
     bottom_z = (totalheight - tubeheight) - 5000
     top_wls_z = bottom_z + wls_height
 
@@ -326,20 +274,36 @@ def make_outer_wlsr_atmospheric_profiles(
 
     for z, r in zip(outer_z, outer_r):
         if bottom_z <= z <= top_wls_z and r > 0:
-            base = r + PROTECTION_GAP  # tube outer + gap
+            base = r + PROTECTION_GAP
 
-            # TTX (mother)
             ttx_inner = base
             ttx_outer = base + WLSR_TTX_THICKNESS + WLSR_TPB_THICKNESS
 
-            # TPB (daughter)
             tpb_inner = base + WLSR_TTX_THICKNESS
             tpb_outer = tpb_inner + WLSR_TPB_THICKNESS
 
-            ttx_inner_z.append(z); ttx_inner_r.append(ttx_inner)
-            ttx_outer_z.append(z); ttx_outer_r.append(ttx_outer)
-            tpb_inner_z.append(z); tpb_inner_r.append(tpb_inner)
-            tpb_outer_z.append(z); tpb_outer_r.append(tpb_outer)
+            ttx_inner_z.append(z)
+            ttx_inner_r.append(ttx_inner)
+            ttx_outer_z.append(z)
+            ttx_outer_r.append(ttx_outer)
+            tpb_inner_z.append(z)
+            tpb_inner_r.append(tpb_inner)
+            tpb_outer_z.append(z)
+            tpb_outer_r.append(tpb_outer)
+
+
+    ttx_thickness_offset = PROTECTION_GAP + WLSR_TTX_THICKNESS + WLSR_TPB_THICKNESS
+    
+    # TTX inner closes at bottom_z, outer closes LOWER
+    ttx_inner_z.insert(0, bottom_z - PROTECTION_GAP)
+    ttx_inner_r.insert(0, 0)
+    ttx_outer_z.insert(0, bottom_z - ttx_thickness_offset)
+    ttx_outer_r.insert(0, 0)
+ 
+    tpb_inner_z.insert(0, bottom_z - ttx_thickness_offset)
+    tpb_inner_r.insert(0, 0)
+    tpb_outer_z.insert(0, bottom_z - ttx_thickness_offset - WLSR_TPB_THICKNESS)
+    tpb_outer_r.insert(0, 0)
 
     return (
         tpb_outer_z, tpb_outer_r,
@@ -360,14 +324,7 @@ def make_ofhc_cu_profiles(
     inner_z: list,
     inner_r: list,
 ) -> tuple:
-    """
-    Create OFHC copper profiles as SOLID volume between steel inner and outer surfaces.
-    
-    Returns
-    -------
-    tuple
-        (ofhc_outer_z, ofhc_outer_r, ofhc_inner_z, ofhc_inner_r)
-    """
+    """Create OFHC copper profiles as SOLID volume."""
     bottom_z = (totalheight - tubeheight) - 5000
     ofhc_start_z = bottom_z + ofhc_start_height
     ofhc_end_z = bottom_z + ofhc_end_height
@@ -375,13 +332,17 @@ def make_ofhc_cu_profiles(
     ofhc_outer_z, ofhc_outer_r = [], []
     ofhc_inner_z, ofhc_inner_r = [], []
 
-    # Process outer and inner together
-    for i, (z_out, r_out) in enumerate(zip(outer_z, outer_r)):
+    # Build a lookup for inner_r by z (since indices no longer match)
+    inner_r_by_z = {z: r for z, r in zip(inner_z, inner_r)}
+
+    for z_out, r_out in zip(outer_z, outer_r):
         if ofhc_start_z <= z_out <= ofhc_end_z:
-            ofhc_outer_z.append(z_out)
-            ofhc_outer_r.append(r_out)
-            ofhc_inner_z.append(inner_z[i])
-            ofhc_inner_r.append(inner_r[i])
+            # Find corresponding inner r at this z
+            if z_out in inner_r_by_z:
+                ofhc_outer_z.append(z_out)
+                ofhc_outer_r.append(r_out)
+                ofhc_inner_z.append(z_out)
+                ofhc_inner_r.append(inner_r_by_z[z_out])
 
     # Ensure boundaries
     if ofhc_outer_z and ofhc_outer_z[0] > ofhc_start_z + 1:
@@ -423,28 +384,25 @@ def make_316l_ss_profiles(
     inner_z: list,
     inner_r: list,
 ) -> tuple:
-    """
-    Create 316L stainless steel from ss_start_height to absolute top of tube.
-    
-    Returns
-    -------
-    tuple
-        (ss_outer_z, ss_outer_r, ss_inner_z, ss_inner_r)
-    """
+    """Create 316L stainless steel profiles."""
     bottom_z = (totalheight - tubeheight) - 5000
     ss_start_z = bottom_z + ss_start_height
-    ss_end_z = (totalheight - 1) - 5000  # Absolute top
+    ss_end_z = (totalheight - 1) - 5000
 
     ss_outer_z, ss_outer_r = [], []
     ss_inner_z, ss_inner_r = [], []
 
-    # Get all points in range, skip r=0 for now
-    for i, (z_out, r_out) in enumerate(zip(outer_z, outer_r)):
+    # Build a lookup for inner_r by z (since indices no longer match)
+    inner_r_by_z = {z: r for z, r in zip(inner_z, inner_r)}
+
+    for z_out, r_out in zip(outer_z, outer_r):
         if ss_start_z <= z_out <= ss_end_z and r_out > 0:
-            ss_outer_z.append(z_out)
-            ss_outer_r.append(r_out)
-            ss_inner_z.append(inner_z[i])
-            ss_inner_r.append(inner_r[i])
+            # Find corresponding inner r at this z
+            if z_out in inner_r_by_z:
+                ss_outer_z.append(z_out)
+                ss_outer_r.append(r_out)
+                ss_inner_z.append(z_out)
+                ss_inner_r.append(inner_r_by_z[z_out])
 
     # Ensure boundaries
     if not ss_outer_z or ss_outer_z[0] > ss_start_z + 1:
@@ -461,7 +419,7 @@ def make_316l_ss_profiles(
         ss_inner_z.append(ss_end_z)
         ss_inner_r.append(inner_end_r)
 
-    # Add r=0 closure caps at BOTH ends (bottom and top)
+    # Add r=0 closure caps at BOTH ends
     ss_outer_z.insert(0, ss_start_z)
     ss_outer_r.insert(0, 0)
     ss_inner_z.insert(0, ss_start_z)
@@ -471,7 +429,5 @@ def make_316l_ss_profiles(
     ss_outer_r.append(0)
     ss_inner_z.append(ss_end_z)
     ss_inner_r.append(0)
-
-    print(f"DEBUG 316L: {len(ss_outer_z)} points")
 
     return ss_outer_z, ss_outer_r, ss_inner_z, ss_inner_r

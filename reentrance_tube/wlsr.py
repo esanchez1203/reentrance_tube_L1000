@@ -1,4 +1,4 @@
-""" WLSR placement """
+""" WLSR placement with cutting plane at top boundary """
 from __future__ import annotations
 
 import numpy as np
@@ -43,12 +43,16 @@ def place_inner_wlsr_in_argon(
     outer_r,
 ):
     """Place inner WLS layers in the underground argon cavity."""
-    (tpb_outer_z, tpb_outer_r, tpb_inner_z, tpb_inner_r,
-     ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r) = make_inner_wlsr_argon_profiles(
+    result = make_inner_wlsr_argon_profiles(
         neckradius, tubeheight, totalheight, curvefraction, wls_height, inner_z, inner_r, outer_z, outer_r
     )
+    
+    # Unpack (no top_wls_z anymore)
+    (tpb_outer_z, tpb_outer_r, tpb_inner_z, tpb_inner_r,
+     ttx_outer_z, ttx_outer_r, ttx_inner_z, ttx_inner_r) = result
 
     if len(ttx_outer_z) > 1:
+        # Create TTX polycones
         tetratex_outer_bound = g4.solid.GenericPolycone(
             "tetratex_inner_argon_outer_bound", 0, 2 * np.pi, ttx_outer_r, ttx_outer_z, registry, "mm"
         )
@@ -59,6 +63,7 @@ def place_inner_wlsr_in_argon(
             "wls_tetratex_inner_argon_solid", tetratex_outer_bound, tetratex_inner_bound,
             [[0, 0, 0], [0, 0, 0, "mm"]], registry
         )
+        
         wls_tetratex_inner_lv = g4.LogicalVolume(
             tetratex_solid, materials.tetratex, "wls_tetratex_inner_argon_lv", registry
         )
@@ -69,6 +74,7 @@ def place_inner_wlsr_in_argon(
         )
 
         if len(tpb_outer_z) > 1:
+            # Create TPB polycones
             tpb_outer_bound = g4.solid.GenericPolycone(
                 "tpb_inner_argon_outer_bound", 0, 2 * np.pi, tpb_outer_r, tpb_outer_z, registry, "mm"
             )
@@ -79,6 +85,7 @@ def place_inner_wlsr_in_argon(
                 "tpb_inner_argon_solid", tpb_outer_bound, tpb_inner_bound,
                 [[0, 0, 0], [0, 0, 0, "mm"]], registry
             )
+            
             wls_inner_lv = g4.LogicalVolume(tpb_solid, materials.tpb_on_tetratex, "wls_inner_argon_lv", registry)
             wls_inner_lv.pygeom_color_rgba = [0.0, 0.5, 1.0, 1.0]
             tpb_inner_pv = g4.PhysicalVolume(
@@ -152,6 +159,3 @@ def place_outer_wlsr_in_atmospheric(
     print(f"\nOuter WLS layer (HIERARCHICAL: Tube -> Gap -> TTX -> TPB -> Atmospheric Ar):")
     print(f"  Height: {wls_height}mm from bottom")
     print(f"  Gap to tube: {PROTECTION_GAP*1e6:.1f} nm ")
-
-
-
