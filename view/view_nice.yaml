@@ -1,0 +1,39 @@
+# enable finer meshing for round surfaces
+fine_mesh: true
+
+# default position at startup of viewer - optimized for cut view
+default:
+  focus: [0, 0, 0]
+  up: [0, 0, 1]
+  camera: [3000, 0, 0]  # Front view looking directly at cut surface
+  parallel: 2700  # Tighter zoom for detail
+
+# Color palette optimized for white background with transparency layers
+color_overrides:
+  # Hide world
+  world_logical: false
+  blackhole_container_lv : false
+
+  #reentrance_tube_lv: [0.2, 0.1, 0.3, 0.7]  # Dark purple - Lead shield (30% opacity)
+  reentrance_tube_lv: false  # Dark purple - Lead shield (30% opacity)
+
+  #underground_argon_lv: [0.8, 0.4, 0.0, 0.35]  # Deep orange - Copper shield (35% opacity)
+  underground_argon_lv: false  # Dark purple - Lead shield (30% opacity)
+
+  #atmospheric_argon: [0.7, 0.85, 1.0, 0.15]  # Pale blue (15% opacity)
+  atmospheric_argon_lv: false
+  
+  #wls_tetratex_inner_argon_lv: [0.9, 0.0, 0.0, 1.0]  # Bronze (40% opacity)
+  wls_tetratex_inner_argon_lv: false
+  #wls_inner_argon_lv: [0.6, 0.35, 0.1, 0.9]
+  wls_inner_argon_lv: false
+
+  #wls_tetratex_outer_atmospheric_lv: [0.0, 0.7, 0.2, 1.0]
+  wls_tetratex_outer_atmospheric_lv: false	
+  #wls_outer_atmospheric_lv: [0.0, 0.7, 0.2, 1.0]
+  wls_outer_atmospheric_lv: false	
+  
+  ofhc_cu_lv: [0.9, 0.0, 0.0, 0.7]  # Bright red - Sample (90% opacity)
+  #ofhc_cu_lv: false
+  ss_316l_lv: [0.0, 0.7, 0.2, 1.0]
+  #ss_316l_lv: false	
