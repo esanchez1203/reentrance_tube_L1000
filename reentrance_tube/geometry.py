@@ -40,9 +40,9 @@ def construct_reentrance_tube(
     
     print(f"\nReentrance tube: radius={neckradius}mm, height={tubeheight}mm")
 
-    # Generate steel profiles
-    outer_z, outer_r = make_outer_profile(neckradius, tubeheight, totalheight, curvefraction)
-    inner_z, inner_r = make_inner_profile(neckradius, tubeheight, totalheight, curvefraction)
+    # Generate steel profiles - PASS wls_height to add critical boundary points
+    outer_z, outer_r = make_outer_profile(neckradius, tubeheight, totalheight, curvefraction, wls_height)
+    inner_z, inner_r = make_inner_profile(neckradius, tubeheight, totalheight, curvefraction, wls_height)
 
     print(f"Generated {len(outer_z)} profile points")
 
@@ -66,7 +66,7 @@ def construct_reentrance_tube(
         [0, 0, 0], [0, 0, 0, "mm"], cavity_lv, "underground_argon", tube_lv, registry=registry
     )
 
-    # Inner WLSRR in underground argon
+    # Inner WLSR in underground argon
     if with_inner_wls:
         place_inner_wlsr_in_argon(
             materials,

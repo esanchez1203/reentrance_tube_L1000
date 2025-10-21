@@ -49,7 +49,7 @@ def create_world_and_argon(reg, materials):
         "blackhole_container_solid",
         0,          # Inner radius = 0 (solid cylinder)
         4000,       # Outer radius = 4m 
-        9000,       # Half-height = 9m 
+        9000,       # height = 9m 
         0,
         2 * np.pi,
         reg,
@@ -80,7 +80,7 @@ def create_world_and_argon(reg, materials):
         "atmospheric_argon_solid",
         0,
         3000,       # 3m radius
-        8000,       # 8m half-height
+        8000,       # 8m height
         0,
         2 * np.pi,
         reg,
