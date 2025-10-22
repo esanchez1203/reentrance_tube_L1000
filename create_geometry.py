@@ -11,6 +11,7 @@ import pint
 from materials import OpticalMaterialRegistry
 from reentrance_tube import construct_reentrance_tube
 from pygeomtools import RemageDetectorInfo
+from overlap_checker import check_overlaps, print_volume_hierarchy, summarize_geometry
 
 
 def create_world_and_argon(reg, materials):
@@ -116,6 +117,10 @@ def main():
     parser.add_argument(
         "--wls-height", type=float, default=2179, help="WLS height from bottom in mm (default: 2179)"
     )
+    parser.add_argument("--check-overlaps", action="store_true", help="Check for geometry overlaps")
+    parser.add_argument("--overlap-tolerance", type=float, default=0.01, help="Overlap tolerance in mm (default: 0.01)")
+    parser.add_argument("--print-hierarchy", action="store_true", help="Print volume hierarchy")
+    parser.add_argument("--summary", action="store_true", help="Print geometry summary")
     args = parser.parse_args()
 
     print("Creating reentrance tube geometry...")
@@ -140,11 +145,34 @@ def main():
         with_316l_ss=args.ss_316l,
     )
 
+    # Geometry analysis
+    if args.summary:
+        summarize_geometry(reg)
+    
+    if args.print_hierarchy:
+        print_volume_hierarchy(reg, max_depth=5)
+    
+    if args.check_overlaps:
+        print("\nChecking for overlaps...")
+        overlaps = check_overlaps(reg, tolerance=args.overlap_tolerance, verbose=True)
+        if len(overlaps) > 0:
+            print(f"\n⚠ WARNING: {len(overlaps)} overlap(s) detected!")
+            print("Review the overlap details above.")
+        else:
+            print("\n✓ No overlaps detected!")
+
     print(f"\nExporting to {args.output}...")
     w = pg4.gdml.Writer()
     w.addDetector(reg)
     w.write(args.output)
     print("GDML file created successfully!")
+    
+    # Additional note about Geant4 overlap checking
+    if args.check_overlaps:
+        print("\nNote: For comprehensive overlap checking, you can also:")
+        print("  1. Load the GDML file in Geant4")
+        print("  2. Run: /geometry/test/run")
+        print("  This will perform a more thorough overlap check.")
 
 
 if __name__ == "__main__":
